@@ -109,9 +109,19 @@ bool SARAconnector::MqttLogout(){
 
 bool SARAconnector::MqttPublish(char message[],char topic[]){
     char mqttMessageBuffer[512];
+    int comresponse;
     sprintf(mqttMessageBuffer,"AT+UMQTTC=2,0,0,\"%s\",\"%s\"",topic,message);
-    this->SARAcommunicate(mqttMessageBuffer);
-    return true;
+    comresponse = this->SARAcommunicate(mqttMessageBuffer);
+    if (comresponse != SARAResponse.POSITIVE) {
+        modem_communication_failure_counter +=1;
+        return false;
+    } else {
+        if (strstr(this->rawResponseBuffer,": 2,1")){
+            return true
+        }
+        return true;
+    }
+    
 }
 
 char * SARAconnector::createFormatString(const char *format, ...) {
@@ -261,7 +271,6 @@ int SARAconnector::SARAcommunicate(char command[],int timeout, char positive_res
     while (!SerialSARA.available()){ // initial wait for response
         delay(100);
         if ((start_millis+timeout)<millis()) {
-            //Serial.println("Communication timed out");
             return SARAResponse.TIMEOUT;
         }
     }
@@ -274,9 +283,7 @@ int SARAconnector::SARAcommunicate(char command[],int timeout, char positive_res
             break;
         }
     }
-
     // TODO wait for end of response, or that sara is no longer available?
-    Serial.println("waiting for end");
     while (!strstr(this->rawResponseBuffer,positive_response)) {
         if (SerialSARA.available()) {
             this->rawResponseBuffer[this->rawResponseBufferPosition++] = SerialSARA.read();
@@ -286,7 +293,8 @@ int SARAconnector::SARAcommunicate(char command[],int timeout, char positive_res
             return SARAResponse.TIMEOUT;
         }
     }
-    delay(10);
+    delay(10); 
+    // Read remaining serial from the modem just in case
     while (SerialSARA.available()) {
         this->rawResponseBuffer[this->rawResponseBufferPosition++] = SerialSARA.read();
         delay(1);
