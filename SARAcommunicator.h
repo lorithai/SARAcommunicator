@@ -2,46 +2,65 @@
 #define SARAcommunicator_h
 
 #include <Arduino.h>
+#include <stdarg.h> // contains va_start stuff
 
 class SARAconnector {
     public:
         SARAconnector(bool debug = false); // constructor
-        void modemHardwarePowerOn();
-        void modemHardwarePowerOff();
+        void begin();
+        bool modemHardwarePowerOn();
+        bool modemHardwarePowerOff();
         bool modemATPowerOff();
         bool modemHardwareHardReset(); // can brick your modem, but sometimes you just gotta
         bool disableRadio();
         bool enableRadio();
 
         // variable manipulators
-        bool setSimContext(String SIM_PIN,String SIM_APN);
-        bool setMqttContext(String ip_address,String domain_name,String default_topic = "");
-        void displayConfig();
+        void setSimContext(char SIM_APN[64],char SIM_PIN[4]);
+        void setMqttContext(char mqtt_server_ip_address[64],char mqtt_server_domain_name[64],char mqtt_client_id[64],char mqtt_user[64],char mqtt_password[64],int port=1883,char mqtt_default_topic[128]="");
+        bool initializeSimContext();
+        bool initializeMqttContext();
+        void displayObjectContext();
 
         // Helpers
-        bool sendATCommand();
-        bool communicate(String command,int timeout = 1000, String positive_response = "OK", String negative_response = "ERROR");
+        bool sendATCommand(char command[512]);
+        bool stringStartsWith(const char* main_string, const char* substring);
+        bool stringEndsWith(const char* main_string, const char* substring);
+        int SARAcommunicate(char command[512],int timeout = 1000, char positive_response[16] = "OK", char negative_response[16] = "ERROR");
         int waitForResponse(int timeout=1000);
+        bool clearRawResponseBuffer();
+        char * createFormatString(const char *format, ...);
 
         // status
         bool modemIsResponsive();
         bool modemIsRegisteredToNetwork();
-        bool modemCanPing(String ip_address);
+        bool modemCanPing(char ip_address[64]);
         bool modemStatus();
 
         // info
         bool getModemInfo();
 
-        // data
-        String mqtt_server_ip_address;
-        String mqtt_server_domain_name;
-        String mqtt_default_topic;
+        // MQTT
+        bool MqttLogin();
+        bool MqttLogout();
+        bool MqttPublish(char message[], char topic[]);
 
-        String SIM_PIN;
-        String SIM_APN;
+        // data
+        int mqtt_port;
+        char mqtt_client_id[64];
+        char mqtt_server_ip_address[64];
+        char mqtt_server_domain_name[64];
+        char mqtt_default_topic[128];
+        char mqtt_password[64];
+        char mqtt_user[64];
+
+        char SIM_PIN[4];
+        char SIM_APN[64];
 
         // internal data
-        String rawResponseBuffer; // used to temporarily store modem responses
+        int rawResponseBufferPosition;
+        char rawResponseBuffer[512]; // used to temporarily store modem responses
+        char formatStringBuffer[512]; // used for storing the formatted strings created for AT commands
         int modem_communication_failure_counter;
         int modem_hard_reset_counter;
         int SARA_resetpin;
@@ -49,6 +68,7 @@ class SARAconnector {
         int modemResponsiveStatus; // 0 - unresponsive, 1 - responsive, 2> - unknown 
         int modemPowerStatus; // 0 - no power, 1 - has power, 2> - unknown 
         bool debug; // lots of printing
+        int MODEM_MIN_RESPONSE_TIME; 
 
  
 
